@@ -1,0 +1,119 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "server3Name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "server3AdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "server3AdminPassword": {
+      "type": "securestring"
+    },
+    "server3WindowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ]
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "aborozenetsstorage"
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "defaultValue": "testRG-vnet"
+    },
+    "virtualNetworkResourceGroup": {
+      "type": "string",
+      "defaultValue": "testRG"
+    }
+  },
+  "variables": {
+    "server3ImagePublisher": "MicrosoftWindowsServer",
+    "server3ImageOffer": "WindowsServer",
+    "server3OSDiskName": "server3OSDisk",
+    "server3VmSize": "Standard_D2_v2",
+    "server3VnetID": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
+    "server3SubnetRef": "[concat(variables('server3VnetID'), '/subnets/', 'backend-subnet')]",
+    "server3StorageAccountContainerName": "vhds",
+    "server3NicName": "[concat(parameters('server3Name'), 'NetworkInterface')]"
+  },
+  "resources": [
+    {
+      "name": "[variables('server3NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "westeurope",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "server3Nic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('server3SubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('server3Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "westeurope",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('server3NicName'))]"
+      ],
+      "tags": {
+        "displayName": "server3"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('server3VmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('server3Name')]",
+          "adminUsername": "[parameters('server3AdminUsername')]",
+          "adminPassword": "[parameters('server3AdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('server3ImagePublisher')]",
+            "offer": "[variables('server3ImageOffer')]",
+            "sku": "[parameters('server3WindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "server3OSDisk",
+            "vhd": {
+              "uri": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net/', variables('server3StorageAccountContainerName'), '/', variables('server3OSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('server3NicName'))]"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
